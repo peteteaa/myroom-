@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pete's Room</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0d0d12; color: #ddd; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+    canvas { display: block; }
+    #hint { position: fixed; pointer-events: none; padding: 4px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7);
+            transform: translate(14px, 14px); opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
+    #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; }
+    #credits-open { position: fixed; left: 16px; right: auto; bottom: 16px; padding: 6px 12px; font: inherit; color: #e6e2f5; cursor: pointer; }
+    #credits-open:hover, #credits-open:focus-visible { background: rgba(36, 31, 66, 0.95); }
+    #credits { position: fixed; inset: auto auto 60px 16px; right: auto; margin: 0; width: min(420px, calc(100vw - 32px));
+               max-height: calc(100vh - 100px); overflow: auto; font-size: 12px; line-height: 1.5; }
+    #credits::backdrop { background: transparent; }
+    #credits header { display: flex; justify-content: space-between; align-items: center; }
+    #credits h2 { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #a9a3c9; }
+    #credits h3 { margin: 12px 0 4px; font-size: 12px; color: #e6e2f5; }
+    #credits ul { margin: 0; padding-left: 16px; display: grid; gap: 4px; color: #c9c4e0; }
+    #credits a { color: #b7aef0; }
+    #credits .fine { margin: 12px 0 0; font-size: 11px; color: #8d88a8; }
+    .panel { position: fixed; right: 16px; background: rgba(14, 12, 24, 0.88); border: 1px solid #3a3466;
+             border-radius: 10px; padding: 12px; color: #e6e2f5; backdrop-filter: blur(6px); }
+    #picker { top: 16px; width: min(280px, calc(100vw - 32px)); }
+    #picker header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    #picker h2 { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #a9a3c9; }
+    #picker ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+    #picker li button { width: 100%; text-align: left; display: grid; padding: 7px 9px; border-radius: 6px; }
+    #picker li button span, #now-playing span { font-size: 11px; color: #a9a3c9; }
+    #now-playing, #etb-panel, #photo-panel { bottom: 48px; display: flex; gap: 10px; align-items: center; }
+    #now-playing div, #etb-panel div, #photo-panel div { display: grid; margin-right: 6px; }
+    #photo-panel { bottom: 112px; }
+    #photo-panel span { font-size: 11px; color: #a9a3c9; }
+    #etb-panel span { font-size: 11px; color: #a9a3c9; }
+    #etb-panel { bottom: 112px; }
+    .panel button { font: inherit; color: inherit; background: #241f42; border: 1px solid #3a3466; border-radius: 6px;
+                    padding: 4px 10px; cursor: pointer; }
+    .panel button:hover, .panel button:focus-visible { background: #332c5c; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="loading">Loading room…</div>
+  <div id="hint"></div>
+  <div id="fade"></div>
+  <section id="picker" class="panel" hidden aria-label="Choose a tape">
+    <header><h2>Choose a tape</h2><button class="close" aria-label="Close">✕</button></header>
+    <ol></ol>
+  </section>
+  <section id="etb-panel" class="panel" hidden aria-label="151 box">
+    <div><strong>Scarlet &amp; Violet 151</strong><span>Click a card to look closer</span></div>
+    <button class="layout">Fan out</button>
+    <button class="close">Put back</button>
+  </section>
+  <section id="photo-panel" class="panel" hidden aria-label="Photos">
+    <div><strong>Polaroids</strong><span>1 / 6</span></div>
+    <button class="prev" aria-label="Previous photo">‹ Prev</button>
+    <button class="next" aria-label="Next photo">Next ›</button>
+    <button class="close">Put back</button>
+  </section>
+  <section id="now-playing" class="panel" hidden aria-live="polite">
+    <div><strong></strong><span></span></div>
+    <button class="toggle">Pause</button>
+    <button class="eject">Eject</button>
+  </section>
+  <button id="credits-open" class="panel">Credits</button>
+  <dialog id="credits" class="panel" aria-labelledby="credits-title">
+    <header><h2 id="credits-title">Credits</h2><button class="close" aria-label="Close">✕</button></header>
+    <h3>3D models</h3>
+    <ul>
+      <li>"Laptop" and "Cap" by J-Toastie · "Boxing Gloves" and "Executive Chair" by Zsky · "Desk lamp" by jeremy ·
+        "TV" by Jarlan Perez · "T-shirt" by Poly by Google · "T-Shirts - folded" by sirkitree —
+        <a href="https://poly.pizza">Poly Pizza</a>, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a></li>
+      <li>"Stanley cup" by Nate · "Nintendo 3DS XL" by Joshua P. Pansdaz —
+        <a href="https://sketchfab.com">Sketchfab</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></li>
+      <li>"IKEA FRÖVÄXT vase" by Shafhan S. — 3D Warehouse</li>
+      <li>"Throw Pillows 01" by Serhii Khromov — <a href="https://polyhaven.com/a/throw_pillows_01">Poly Haven</a>, CC0</li>
+    </ul>
+    <h3>Pokémon</h3>
+    <ul>
+      <li>Torchic, Ditto, Lucario and Umbreon models and animations by the
+        <a href="https://gitlab.com/cable-mc/cobblemon-assets">Cobblemon</a> team —
+        <a href="https://creativecommons.org/licenses/by-nc/3.0/">CC BY-NC 3.0</a>, converted for three.js</li>
+      <li>Pokémon 151 box and card art © Pokémon / Nintendo / Creatures / GAME FREAK, shown as a fan tribute</li>
+    </ul>
+    <p class="fine">Pokémon, Nintendo 3DS, IKEA and Stanley are trademarks of their owners; this site isn't affiliated
+      with or endorsed by any of them. Everything else in the room is modelled by me.</p>
+  </dialog>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script>
+    // Credits: a small button bottom-left that opens a panel (click outside, ✕ or Esc closes it)
+    const credits = document.getElementById("credits");
+    document.getElementById("credits-open").addEventListener("click", () => (credits.open ? credits.close() : credits.showModal()));
+    credits.querySelector(".close").addEventListener("click", () => credits.close());
+    credits.addEventListener("click", (event) => {
+      const r = credits.getBoundingClientRect();   // clicks on the backdrop land on the dialog itself, outside its box
+      if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) credits.close();
+    });
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
