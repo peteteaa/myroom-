@@ -10,7 +10,28 @@
     #hint { position: fixed; pointer-events: none; padding: 4px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7);
             transform: translate(14px, 14px); opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
     #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
-    #loading { position: fixed; inset: 0; display: grid; place-items: center; }
+    #loading { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
+               background: radial-gradient(ellipse at 50% 60%, #221d33 0%, #0d0d12 70%); transition: opacity 0.6s ease; }
+    #loading.done { opacity: 0; pointer-events: none; }
+    #loading .card { display: grid; justify-items: center; gap: 14px; width: min(260px, 100%); text-align: center; }
+    #loading .door { width: 34px; height: 52px; border: 2px solid #3a3466; border-radius: 3px 3px 0 0; position: relative;
+                     background: linear-gradient(#1a1630, #241f42); box-shadow: 0 0 40px rgba(183, 174, 240, 0.12); }
+    #loading .door::after { content: ""; position: absolute; right: 6px; top: 26px; width: 4px; height: 4px; border-radius: 50%;
+                            background: #b7aef0; box-shadow: 0 0 6px #b7aef0; animation: knob 1.6s ease-in-out infinite; }
+    @keyframes knob { 50% { opacity: 0.35; } }
+    #loading h1 { margin: 4px 0 0; font-size: 18px; font-weight: 600; letter-spacing: 0.02em; color: #e6e2f5; }
+    #loading .bar { width: 100%; height: 3px; border-radius: 3px; background: #241f42; overflow: hidden; }
+    #loading .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #7d73c9, #b7aef0);
+                      transition: width 0.2s ease; }
+    #loading.indeterminate .bar i { width: 30%; animation: sweep 1.2s ease-in-out infinite; }
+    @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+    #loading .status { display: flex; justify-content: space-between; width: 100%; font-size: 11px; color: #a9a3c9;
+                       font-variant-numeric: tabular-nums; }
+    #loading .tip { margin: 6px 0 0; font-size: 11px; color: #6f6a8c; }
+    @media (prefers-reduced-motion: reduce) {
+      #loading, #loading .bar i { transition: none; }
+      #loading .door::after, #loading.indeterminate .bar i { animation: none; }
+    }
     #credits-open { position: fixed; left: 16px; right: auto; bottom: 16px; padding: 6px 12px; font: inherit; color: #e6e2f5; cursor: pointer; }
     #credits-open:hover, #credits-open:focus-visible { background: rgba(36, 31, 66, 0.95); }
     #credits { position: fixed; inset: auto auto 60px 16px; right: auto; margin: 0; width: min(420px, calc(100vw - 32px));
@@ -46,7 +67,15 @@
   </style>
 </head>
 <body>
-  <div id="loading">Loading room…</div>
+  <div id="loading" role="status" aria-live="polite">
+    <div class="card">
+      <div class="door" aria-hidden="true"></div>
+      <h1>Pete's Room</h1>
+      <div class="bar" aria-hidden="true"><i></i></div>
+      <div class="status"><span class="label">Loading room…</span><span class="pct"></span></div>
+      <p class="tip">Drag to look around · scroll to zoom · click things</p>
+    </div>
+  </div>
   <div id="hint"></div>
   <div id="fade"></div>
   <section id="picker" class="panel" hidden aria-label="Choose a tape">
