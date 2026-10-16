@@ -4,6 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createPokemon } from "./pokemon.js";
 import { createLook, shadowify } from "./look.js";
+import { createDayNight } from "./daynight.js";
 
 const ROOM_URL = "../blender/my_room.glb";
 
@@ -47,7 +48,8 @@ renderer.domElement.addEventListener("wheel", (event) => {
 // Soft image-based light so glossy things (the SDAT's clearcoat, chrome) reflect a room instead of one hard light
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.35;
-scene.add(new THREE.HemisphereLight(0xfff1dd, 0x2a2430, 0.65));
+const hemi = new THREE.HemisphereLight(0xfff1dd, 0x2a2430, 0.65);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffd9a8, 2.1);   // warm afternoon sun through the window wall (placed in look.js)
 scene.add(sun);
 const ceilingLight = new THREE.PointLight(0xffe8cc, 6, 0, 1.4);
@@ -70,6 +72,7 @@ const look = createLook(renderer, scene, camera, sun);
 new GLTFLoader().load(ROOM_URL, (gltf) => {
   scene.add(gltf.scene);
   shadowify(gltf.scene);
+  dayNight = createDayNight({ scene, sun, hemi, ceilingLight, look, room: gltf.scene });
   scene.updateMatrixWorld(true);
   gltf.scene.traverse((obj) => {
     if (obj.userData.cassette) deck.tapes.push({ obj, home: { pos: obj.position.clone(), quat: obj.quaternion.clone() } });
@@ -113,6 +116,7 @@ function pickAt(event) {
     if (o.userData.etb_card && etb.open) return { card: etb.cards.find((c) => c.obj === o) };
     if (o.userData.etb) return { etb: o };
     if (o.userData.polaroid !== undefined) return { photo: o.userData.polaroid };
+    if (o.name?.startsWith("bed_")) return { bed: true };
     if (o.userData.link) return { link: o };
   }
   return null;
@@ -126,7 +130,8 @@ renderer.domElement.addEventListener("pointermove", (event) => {
     : pick?.pokemon ? pick.pokemon.label
     : pick?.card ? pick.card.obj.userData.card_name
     : pick?.etb ? (etb.open ? "Put the lid back" : "Open the 151 box")
-    : pick?.photo !== undefined ? (photos.open ? "Next photo" : "Look at the photos") : "";
+    : pick?.photo !== undefined ? (photos.open ? "Next photo" : "Look at the photos")
+    : pick?.bed && !bed.lying ? "Lie down" : "";
   renderer.domElement.style.cursor = text ? "pointer" : "";
   hint.textContent = text;
   hint.style.opacity = text ? 1 : 0;
@@ -154,6 +159,8 @@ renderer.domElement.addEventListener("pointerup", (event) => {
   } else if (pick?.etb) {
     if (etb.open) closeEtb();
     else openEtb();
+  } else if (pick?.bed && !bed.lying) {
+    lieDown();
   } else if (pick?.photo !== undefined) {
     if (photos.open) showPhoto(photos.index + 1);
     else openPhotos();
@@ -319,7 +326,7 @@ function approach(box, eye = null) {
   return walkTo(eye, center, FOCUS.fov, 1.1);
 }
 function stepBack() {
-  if (!standBack || deck.focused || etb.open || photos.open) return;
+  if (!standBack || deck.focused || etb.open || photos.open || bed.lying) return;
   const look = standBack.look.clone().sub(standBack.eye).multiplyScalar(100).add(standBack.eye);
   walkTo(standBack.eye, look, FOV.start, 1.0);
   standBack = null;
@@ -775,7 +782,8 @@ function turnHead(dt) {
   const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
   const pitched = dir.clone().applyAxisAngle(right, pitch * TURN_SPEED.pitch * dt);
   const elevation = Math.asin(THREE.MathUtils.clamp(pitched.y, -1, 1));
-  if (elevation > -THREE.MathUtils.degToRad(60) && elevation < THREE.MathUtils.degToRad(20)) dir.copy(pitched);
+  const maxUp = THREE.MathUtils.degToRad(bed.lying ? 85 : 20);   // lying on your back you can look right up
+  if (elevation > -THREE.MathUtils.degToRad(60) && elevation < maxUp) dir.copy(pitched);
   controls.target.copy(camera.position).addScaledVector(dir, 0.01);
 }
 
@@ -791,7 +799,47 @@ window.addEventListener("keydown", (event) => {
   hidePicker();
   closeEtb();
   closePhotos();
+  getUp();
 });
+
+// ---- Lie down on the bed: the camera settles onto the pillows and time-lapses through a day and night -------------
+let dayNight = null;   // created once the room has loaded (it needs the window and lamp materials)
+const bed = { lying: false, busy: false };
+const BED_EYE = new THREE.Vector3(3.15, 0.9, -3.25);    // head on the pillows (three.js coords)
+const BED_LOOK = new THREE.Vector3(1.9, 3.6, 0.0);      // up past the posters to the ceiling, closet and door below
+const bedPanel = document.getElementById("bed-panel");
+bedPanel.querySelector(".up").addEventListener("click", () => getUp());
+const deg = THREE.MathUtils.degToRad;
+
+async function lieDown() {
+  if (bed.busy || bed.lying || deck.busy || etb.busy || photos.busy || opening) return;
+  bed.busy = true;
+  hint.style.opacity = 0;
+  if (deck.focused) { deck.focused = false; picker.hidden = true; }
+  if (etb.open) await closeEtb();
+  if (photos.open) await closePhotos();
+  standBack ??= { eye: camera.position.clone(), look: controls.target.clone() };
+  controls.maxPolarAngle = deg(175);   // allow looking almost straight up
+  await walkTo(BED_EYE, BED_LOOK, 65, 1.6);
+  bed.lying = true;
+  dayNight?.timelapse(true);
+  bedPanel.hidden = false;
+  bed.busy = false;
+}
+
+async function getUp() {
+  if (!bed.lying || bed.busy) return;
+  bed.busy = true;
+  bed.lying = false;
+  bedPanel.hidden = true;
+  dayNight?.timelapse(false);   // eases back to the afternoon
+  const back = standBack;
+  standBack = null;
+  const look = back.look.clone().sub(back.eye).multiplyScalar(100).add(back.eye);
+  await walkTo(back.eye, look, FOV.start, 1.4);
+  controls.maxPolarAngle = deg(110);
+  bed.busy = false;
+}
 
 // ---- Loop --------------------------------------------------------------------
 window.addEventListener("resize", () => {
@@ -807,6 +855,10 @@ renderer.setAnimationLoop((now) => {
   lastFrame = now;
   for (const p of pokemon.values()) p.update(dt);
   turnHead(dt);
+  if (dayNight) {
+    dayNight.update(dt);
+    if (bed.lying) bedPanel.querySelector(".time").textContent = dayNight.label();
+  }
   runTweens(now);
   if (opening) animateOpening(now);
   else if (controls.enabled) controls.update();

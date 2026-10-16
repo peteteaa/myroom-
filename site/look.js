@@ -136,6 +136,8 @@ export function createLook(renderer, scene, camera, sun) {
   return {
     composer,
     setSize,
+    grade: grade.uniforms,
+    bloom,
     render(now) {
       grade.uniforms.time.value = (now % 10000) / 1000;
       composer.render();

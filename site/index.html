@@ -33,6 +33,9 @@
     #now-playing, #etb-panel, #photo-panel { bottom: 48px; display: flex; gap: 10px; align-items: center; }
     #now-playing div, #etb-panel div, #photo-panel div { display: grid; margin-right: 6px; }
     #photo-panel { bottom: 112px; }
+    #bed-panel { bottom: 48px; display: flex; gap: 10px; align-items: center; }
+    #bed-panel div { display: grid; margin-right: 6px; }
+    #bed-panel .time { font-size: 11px; color: #a9a3c9; font-variant-numeric: tabular-nums; }
     #photo-panel span { font-size: 11px; color: #a9a3c9; }
     #etb-panel span { font-size: 11px; color: #a9a3c9; }
     #etb-panel { bottom: 112px; }
@@ -60,6 +63,10 @@
     <button class="prev" aria-label="Previous photo">‹ Prev</button>
     <button class="next" aria-label="Next photo">Next ›</button>
     <button class="close">Put back</button>
+  </section>
+  <section id="bed-panel" class="panel" hidden aria-label="Lying in bed">
+    <div><strong>Lying in bed</strong><span class="time">3:30 PM</span></div>
+    <button class="up">Get up</button>
   </section>
   <section id="now-playing" class="panel" hidden aria-live="polite">
     <div><strong></strong><span></span></div>

@@ -1208,9 +1208,45 @@ for col, y in enumerate([0.35 + i * 0.27 for i in range(9)]):
     for row, z in enumerate((1.15, 1.47, 1.8)):
         if (col * 7 + row * 3) % 5 == 4:
             continue
+        if y < 1.55:
+            continue   # the TV wall is for the posters below
         jy, jz = ((col * 13 + row * 5) % 7 - 3) * 0.008, ((col * 3 + row * 11) % 5 - 2) * 0.01
         papers.append((0.0, y + jy, z + jz, 0.004, y + jy + 0.21, z + jz + 0.28))
 merged("wall_papers", papers, M["paper"], collection=decor)
+
+
+# ---- Left wall above the TV: my posters (cropped and straightened from a photo of the wall) ----------------------
+def photo_poster(name, image_file, y0, z0, width, height, tilt=0.0):
+    """Flat printed poster on the left wall (x = 0), facing into the room; picture right = +Y, up = +Z."""
+    img = bpy.data.images.load(os.path.join(ASSET_DIR, "posters", image_file))
+    img.pack()
+    m = mat(f"{name}_print", (1, 1, 1), rough=0.75)
+    tex = m.node_tree.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    m.node_tree.links.new(tex.outputs["Color"], next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Base Color"])
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new()
+    cy, cz = y0 + width / 2, z0 + height / 2
+    rot = Matrix.Rotation(math.radians(tilt), 3, "X")
+    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    face = bm.faces.new([bm.verts.new(Vector((0.004, cy, cz)) + rot @ Vector((0, sy * width / 2, sz * height / 2)))
+                         for sy, sz in corners])
+    for loop, (sy, sz) in zip(face.loops, corners):
+        loop[uv].uv = ((sy + 1) / 2, (sz + 1) / 2)
+    bm.normal_update()
+    if face.normal.x < 0:
+        face.normal_flip()
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    return _link(name, me, m, collection=decor)
+
+
+# 11x17" Philippine Cultural Night posters in a row over the TV, the Gundam print above the right two
+photo_poster("poster_pcn_marahuyo", "poster_marahuyo.jpg", 0.47, 1.3, 0.28, 0.405, tilt=-0.6)
+photo_poster("poster_pcn_paraluman", "poster_paraluman.jpg", 0.79, 1.3, 0.28, 0.412, tilt=0.4)
+photo_poster("poster_pcn_pamana", "poster_pamana.jpg", 1.11, 1.3, 0.28, 0.42, tilt=-0.3)
+photo_poster("poster_gundam", "poster_gundam.jpg", 0.86, 1.77, 0.46, 0.303, tilt=0.8)
 
 
 # Les Misérables poster (right wall, by the closet corner)

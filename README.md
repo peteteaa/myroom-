@@ -156,5 +156,7 @@ The Elite Trainer Box artwork (`blender/assets/etb151_*.jpg`, rectified from pro
 non-commercial fan portfolio. They're referenced only to describe the objects in the room.
 This project is not affiliated with or endorsed by any of these companies.
 
+The posters above the TV (`blender/assets/posters/`) are cropped and straightened from my own photo of the wall.
+
 Everything else (room shell, furniture, posters, closet, door and wall decor) was modeled procedurally
 in `blender/build_my_room.py`.
