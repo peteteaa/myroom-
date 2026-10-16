@@ -1,0 +1,6 @@
+*.blend
+*.blend1
+blender/*.png
+blender/room.glb
+dist
+node_modules
