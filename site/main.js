@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createPokemon } from "./pokemon.js";
@@ -69,7 +70,9 @@ scene.add(ceiling);
 const look = createLook(renderer, scene, camera, sun);
 
 // ---- Load the room -------------------------------------------------------------------
-new GLTFLoader().load(ROOM_URL, (gltf) => {
+// The production build Draco-compresses the room; the decoder is only fetched for compressed files
+const draco = new DRACOLoader().setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/");
+new GLTFLoader().setDRACOLoader(draco).load(ROOM_URL, (gltf) => {
   scene.add(gltf.scene);
   shadowify(gltf.scene);
   dayNight = createDayNight({ scene, sun, hemi, ceilingLight, look, room: gltf.scene });

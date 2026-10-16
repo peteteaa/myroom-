@@ -1,0 +1,14 @@
+{
+  "name": "portfoliov2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "npx serve dist"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.1.1",
+    "esbuild": "^0.24.0",
+    "three": "0.170.0"
+  }
+}
