@@ -1171,31 +1171,82 @@ _solid = heart.modifiers.new("Solidify", "SOLIDIFY")
 _solid.thickness = 0.004
 text("heart_text", "PETE", 0.07, (wx - 0.009, 2.2, 1.6), FACE_RIGHT_WALL, mat("ink_purple", (0.4, 0.25, 0.6)), collection=decor)
 
-# grentperez poster
-right_poster("poster_grentperez", 1.15, 1.85, 1.45, 2.05, M["poster_cream"])
-text("poster_grentperez_title", "grentperez", 0.09, (wx - 0.008, 1.5, 1.92), FACE_RIGHT_WALL, M["green"], collection=decor)
-merged("poster_grentperez_art", [(wx - 0.008, 1.22, 1.55, wx - 0.006, 1.5, 1.82),
-                                 (wx - 0.008, 1.55, 1.5, wx - 0.006, 1.78, 1.8)], M["green"], collection=decor)
+# Boxing gloves (interactive). My two pairs (RDX black, Venum white) rebuilt from a photo of the wall: each glove's
+# cut-out (assets/gloves/*_mask.png, 1 = left glove, 2 = right) is inflated into a cushion with the photo on the front.
+# GLOVES_FROM_PHOTO = False brings back the old free "Boxing Gloves" model (Zsky, CC-BY), recolored.
+GLOVES_FROM_PHOTO = True
+GLOVE_PX = 0.000448      # metres per texture pixel (both pairs are in one photo, so they share a scale)
+GLOVE_STEP = 8           # mesh grid spacing in texture pixels (~3.6 mm)
 
-# Bewitched poster
-right_poster("poster_bewitched", 0.55, 1.12, 1.45, 2.2, mat("poster_white", (0.88, 0.88, 0.86), rough=0.8))
-text("poster_bewitched_title", "BEWITCHED", 0.07, (wx - 0.008, 0.835, 2.1), FACE_RIGHT_WALL, M["blue_ink"], collection=decor)
-merged("poster_bewitched_border", [(wx - 0.008, 0.58, 1.48, wx - 0.007, 0.6, 2.03),
-                                   (wx - 0.008, 1.07, 1.48, wx - 0.007, 1.09, 2.03),
-                                   (wx - 0.008, 0.68, 1.6, wx - 0.007, 0.99, 1.95)], M["blue_ink"], collection=decor)
 
-# Boxing gloves (interactive) — free "Boxing Gloves" model (Zsky, CC-BY), recolored
+def photo_gloves(name, image, y, zc, depth, rough):
+    """A pair hanging on the right wall, facing -X (picture right = -Y, up = +Z), picture centred on (y, zc).
+    Each glove is a Poisson balloon over its mask with a sqrt profile (round edges), `depth` at its thickest."""
+    m = etb_img_mat(f"{name}_print", os.path.join(ASSET_DIR, "gloves", f"{image}.jpg"), rough=rough)
+    mask = bpy.data.images.load(os.path.join(ASSET_DIR, "gloves", f"{image}_mask.png"))
+    w, h = mask.size
+    px = np.empty(w * h * 4, np.float32)
+    mask.pixels.foreach_get(px)
+    bpy.data.images.remove(mask)
+    lab = np.rint(px.reshape(h, w, 4)[::-1, :, 0] * 255 / 120).astype(int)[::GLOVE_STEP, ::GLOVE_STEP]   # rows top-down
+    gh, gw = lab.shape
+    hgt = np.zeros((gh, gw))
+    for k in (1, 2):
+        inside = lab == k
+        p = np.zeros((gh + 2, gw + 2))
+        for _ in range(4000):
+            p[1:-1, 1:-1] = np.where(inside, (p[:-2, 1:-1] + p[2:, 1:-1] + p[1:-1, :-2] + p[1:-1, 2:]) / 4 + 1, 0)
+        p = p[1:-1, 1:-1]
+        hgt = np.maximum(hgt, depth * np.sqrt(p / p.max()))
+
+    s = GLOVE_PX * GLOVE_STEP
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new()
+    verts = {(r, c): bm.verts.new((-hgt[r, c], -c * s, -r * s)) for r, c in zip(*np.nonzero(lab))}
+    for r in range(gh - 1):
+        for c in range(gw - 1):
+            quad = [q for q in ((r, c), (r + 1, c), (r + 1, c + 1), (r, c + 1)) if q in verts]
+            if len(quad) < 3:
+                continue
+            face = bm.faces.new([verts[q] for q in quad])       # this winding faces -X
+            for loop, (qr, qc) in zip(face.loops, quad):
+                loop[uv].uv = ((qc * GLOVE_STEP + 0.5) / w, 1 - (qr * GLOVE_STEP + 0.5) / h)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    # rim: smooth the pixel staircase along the outline, then pull it back onto the wall
+    rim = [v for v in bm.verts if v.is_boundary]
+    for _ in range(4):
+        nbrs = {v: [e.other_vert(v).co for e in v.link_edges if e.is_boundary] for v in rim}
+        new = {v: (v.co + sum(n, Vector()) / len(n)) / 2 for v, n in nbrs.items()}
+        for v, co in new.items():
+            v.co.yz = co.yz
+    for v in rim:
+        v.co.x = 0.0
+    xs, ys, zs = zip(*(v.co[:] for v in bm.verts))
+    bmesh.ops.translate(bm, vec=(W - 0.005, y - (min(ys) + max(ys)) / 2, zc - (min(zs) + max(zs)) / 2), verts=bm.verts)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    obj = _link(name, me, m, collection=gloves)
+    for poly in obj.data.polygons:
+        poly.use_smooth = True
+    return obj
+
+
 gloves = new_collection("boxing_gloves")
-glove_cuff = mat("glove_cuff", (0.05, 0.05, 0.055), rough=0.4)
-for name, y, upper, lower in [("gloves_black", DRESSER_Y[0] + 1.13, M["glove_black"], glove_cuff),   # above the dresser
-                              ("gloves_white", DRESSER_Y[0] + 0.67, M["glove_white"], M["glove_black"])]:
-    import_asset("boxing_gloves.glb", name, (0, y, 0), fit=(None, 0.36, None),
-                 rotation=Matrix.Rotation(math.radians(90), 4, "Z"),       # fronts face the wall (+X)
-                 align={"xmax": W - 0.005, "zcenter": 1.12},
-                 part_rotations={"LBoxingGloves1": math.radians(90), "RBoxingGloves1": math.radians(-90)},
-                 material_map={"Upper1LBoxingGloves1": upper, "Upper1RBoxingGloves1": upper,
-                               "Lower1LBoxingGloves1": lower, "Lower1RBoxingGloves1": lower},
-                 collection=gloves)
+if GLOVES_FROM_PHOTO:
+    photo_gloves("gloves_black", "gloves_rdx", DRESSER_Y[0] + 1.13, 1.12, 0.1, rough=0.8)      # above the dresser
+    photo_gloves("gloves_white", "gloves_venum", DRESSER_Y[0] + 0.67, 1.12, 0.1, rough=0.45)
+else:
+    glove_cuff = mat("glove_cuff", (0.05, 0.05, 0.055), rough=0.4)
+    for name, y, upper, lower in [("gloves_black", DRESSER_Y[0] + 1.13, M["glove_black"], glove_cuff),   # above the dresser
+                                  ("gloves_white", DRESSER_Y[0] + 0.67, M["glove_white"], M["glove_black"])]:
+        import_asset("boxing_gloves.glb", name, (0, y, 0), fit=(None, 0.36, None),
+                     rotation=Matrix.Rotation(math.radians(90), 4, "Z"),       # fronts face the wall (+X)
+                     align={"xmax": W - 0.005, "zcenter": 1.12},
+                     part_rotations={"LBoxingGloves1": math.radians(90), "RBoxingGloves1": math.radians(-90)},
+                     material_map={"Upper1LBoxingGloves1": upper, "Upper1RBoxingGloves1": upper,
+                                   "Lower1LBoxingGloves1": lower, "Lower1RBoxingGloves1": lower},
+                     collection=gloves)
 
 # ---- Far wall: Chainsaw Man poster -------------------------------------------------
 box("poster_chainsaw_man", 1.48, D - 0.006, 1.35, 1.88, D, 1.95, M["poster_dark"], collection=decor)
@@ -1216,8 +1267,9 @@ merged("wall_papers", papers, M["paper"], collection=decor)
 
 
 # ---- Left wall above the TV: my posters (cropped and straightened from a photo of the wall) ----------------------
-def photo_poster(name, image_file, y0, z0, width, height, tilt=0.0):
-    """Flat printed poster on the left wall (x = 0), facing into the room; picture right = +Y, up = +Z."""
+def photo_poster(name, image_file, y0, z0, width, height, tilt=0.0, wall="left"):
+    """Flat printed poster facing into the room, up = +Z. wall 'left' (x = 0): picture right = +Y, y0 = its left edge;
+    wall 'right' (x = W): picture right = -Y, y0 = its right edge (lowest y)."""
     img = bpy.data.images.load(os.path.join(ASSET_DIR, "posters", image_file))
     img.pack()
     m = mat(f"{name}_print", (1, 1, 1), rough=0.75)
@@ -1226,15 +1278,17 @@ def photo_poster(name, image_file, y0, z0, width, height, tilt=0.0):
     m.node_tree.links.new(tex.outputs["Color"], next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Base Color"])
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new()
+    right = wall == "right"
+    px, dy = (W - 0.004, -1) if right else (0.004, 1)
     cy, cz = y0 + width / 2, z0 + height / 2
     rot = Matrix.Rotation(math.radians(tilt), 3, "X")
     corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
-    face = bm.faces.new([bm.verts.new(Vector((0.004, cy, cz)) + rot @ Vector((0, sy * width / 2, sz * height / 2)))
+    face = bm.faces.new([bm.verts.new(Vector((px, cy, cz)) + rot @ Vector((0, dy * sy * width / 2, sz * height / 2)))
                          for sy, sz in corners])
     for loop, (sy, sz) in zip(face.loops, corners):
         loop[uv].uv = ((sy + 1) / 2, (sz + 1) / 2)
     bm.normal_update()
-    if face.normal.x < 0:
+    if (face.normal.x > 0) == right:
         face.normal_flip()
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
@@ -1249,10 +1303,11 @@ photo_poster("poster_pcn_pamana", "poster_pamana.jpg", 1.11, 1.3, 0.28, 0.42, ti
 photo_poster("poster_gundam", "poster_gundam.jpg", 0.86, 1.77, 0.46, 0.303, tilt=0.8)
 
 
-# Les Misérables poster (right wall, by the closet corner)
-right_poster("poster_les_miserables", 0.08, 0.46, 1.4, 1.98, mat("poster_navy", (0.03, 0.05, 0.12), rough=0.8))
-text("poster_les_miserables_title", "Les\nMisérables", 0.055, (wx - 0.008, 0.27, 1.85), FACE_RIGHT_WALL, M["white"], collection=decor)
-sphere("poster_les_miserables_art", wx - 0.008, 0.27, 1.58, 0.09, M["poster_cream"], scale=(0.05, 1, 1.1), collection=decor)
+# Right wall above the dresser / ETB, left to right facing the wall: grentperez 18x24", Bewitched 16x24",
+# Les Misérables 14x22", grentperez next to the heart (same photo treatment)
+photo_poster("poster_grentperez", "poster_grentperez.jpg", 1.40, 1.49, 0.457, 0.61, tilt=0.3, wall="right")
+photo_poster("poster_bewitched", "poster_bewitched.jpg", 0.936, 1.51, 0.406, 0.61, tilt=-0.4, wall="right")
+photo_poster("poster_les_miserables", "poster_les_miserables.jpg", 0.52, 1.57, 0.356, 0.559, tilt=0.5, wall="right")
 
 # ---- Near wall (door side): mirrored sliding closet, door, caps, pictures -------------
 # Tagged userData.cutaway so three.js can hide/fade it when the camera is on this side.
