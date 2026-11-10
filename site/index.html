@@ -4,33 +4,64 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pete's Room</title>
+  <link rel="preload" as="image" href="assets/loading/starfall-1600.webp" imagesrcset="assets/loading/starfall-1000.webp 1000w, assets/loading/starfall-1600.webp 1600w, assets/loading/starfall-2400.webp 2400w" imagesizes="100vw" fetchpriority="high">
   <style>
     html, body { margin: 0; height: 100%; background: #0d0d12; color: #ddd; font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
     canvas { display: block; }
     #hint { position: fixed; pointer-events: none; padding: 4px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7);
             transform: translate(14px, 14px); opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
     #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
-    #loading { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px;
-               background: radial-gradient(ellipse at 50% 60%, #221d33 0%, #0d0d12 70%); transition: opacity 0.6s ease; }
+    /* ---------- loading screen ---------- */
+    #loading { position: fixed; inset: 0; z-index: 10; overflow: hidden; background: linear-gradient(#1a1546, #3a73cc 45%, #c4b5de 62%, #ffe7b6 64%, #4f8f47 75%, #11251a); transition: opacity 0.9s ease; }
     #loading.done { opacity: 0; pointer-events: none; }
-    #loading .card { display: grid; justify-items: center; gap: 14px; width: min(260px, 100%); text-align: center; }
-    #loading .door { width: 34px; height: 52px; border: 2px solid #3a3466; border-radius: 3px 3px 0 0; position: relative;
-                     background: linear-gradient(#1a1630, #241f42); box-shadow: 0 0 40px rgba(183, 174, 240, 0.12); }
-    #loading .door::after { content: ""; position: absolute; right: 6px; top: 26px; width: 4px; height: 4px; border-radius: 50%;
-                            background: #b7aef0; box-shadow: 0 0 6px #b7aef0; animation: knob 1.6s ease-in-out infinite; }
-    @keyframes knob { 50% { opacity: 0.35; } }
-    #loading h1 { margin: 4px 0 0; font-size: 18px; font-weight: 600; letter-spacing: 0.02em; color: #e6e2f5; }
-    #loading .bar { width: 100%; height: 3px; border-radius: 3px; background: #241f42; overflow: hidden; }
-    #loading .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #7d73c9, #b7aef0);
-                      transition: width 0.2s ease; }
-    #loading.indeterminate .bar i { width: 30%; animation: sweep 1.2s ease-in-out infinite; }
+    #loading .scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+    /* the painting (VectorCraft brushwork export) with the live effects layered over it */
+    #loading .scene { position: absolute; inset: 0; animation: drift 40s ease-in-out infinite alternate; transform-origin: 48% 70%; }
+    @keyframes drift { from { transform: scale(1); } to { transform: scale(1.045); } }
+    #loading .bg, #loading .fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #loading .bg { object-fit: cover; object-position: 50% 50%; opacity: 0; transition: opacity 0.8s ease; }
+    #loading .bg.ready { opacity: 1; }
+    #loading #stars-a-p { animation: twinkle 3.1s ease-in-out infinite; }
+    #loading #stars-b-p { animation: twinkle 2.3s ease-in-out -0.8s infinite; }
+    #loading #stars-c-p { animation: twinkle 4.2s ease-in-out -2s infinite; }
+    @keyframes twinkle { 50% { opacity: 0.3; } }
+    #loading #sun-flare { transform-box: view-box; transform-origin: 1240px 598px; animation: flare 5s ease-in-out infinite; }
+    @keyframes flare { 50% { opacity: 0.82; transform: scale(0.96); } }
+    #loading #fx-window-glow { animation: flicker 3.6s ease-in-out infinite; }
+    @keyframes flicker { 40% { opacity: 0.75; } 45% { opacity: 1; } 70% { opacity: 0.85; } }
+    #loading #fx-rings { mix-blend-mode: screen; animation: rings 2.6s ease-in-out infinite; }
+    @keyframes rings { 50% { opacity: 0.45; } }
+
+    #loading .card { position: absolute; left: 50%; bottom: max(24px, 6vh); transform: translateX(-50%);
+                     width: min(320px, calc(100% - 32px)); display: grid; justify-items: center; gap: 10px; text-align: center; }
+    #loading h1 { margin: 0 0 4px; font: 600 26px/1.2 "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", Georgia, serif;
+                  letter-spacing: 0.12em; color: #fff8ec; text-shadow: 0 2px 0 rgba(8, 20, 16, 0.6), 0 0 14px rgba(160, 190, 255, 0.35); }
+
+    /* the red braided cord is the progress bar */
+    #loading .cord { position: relative; width: 100%; height: 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.12); }
+    #loading .cord i { position: relative; display: block; height: 100%; width: 0; border-radius: inherit;
+                       background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent 50%, rgba(0, 0, 0, 0.25)),
+                                   linear-gradient(45deg, #e5384f 25%, #a5162f 25%, #a5162f 50%, #e5384f 50%, #e5384f 75%, #a5162f 75%);
+                       background-size: 100% 100%, 6px 6px; box-shadow: 0 0 6px rgba(255, 70, 90, 0.5);
+                       transition: width 0.3s ease; animation: braid 0.9s linear infinite; }
+    #loading .cord i::after { content: ""; position: absolute; right: -4px; top: 50%; width: 9px; height: 9px; transform: translateY(-50%);
+                              border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff8a94, #b0182f); }
+    @keyframes braid { to { background-position: 0 0, 6px 0; } }
+    #loading.indeterminate .cord { overflow: hidden; }
+    #loading.indeterminate .cord i { width: 30%; animation: braid 0.9s linear infinite, sweep 1.6s ease-in-out infinite; }
+    #loading.indeterminate .cord i::after { display: none; }
     @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
-    #loading .status { display: flex; justify-content: space-between; width: 100%; font-size: 11px; color: #a9a3c9;
-                       font-variant-numeric: tabular-nums; }
-    #loading .tip { margin: 6px 0 0; font-size: 11px; color: #6f6a8c; }
+
+    #loading .status { display: flex; justify-content: space-between; width: 100%; font-size: 11px; color: rgba(240, 248, 240, 0.85);
+                       font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+    #loading .tip { margin: 2px 0 0; font-size: 11px; color: rgba(210, 230, 215, 0.6); }
+    #loading.error .cord i { background: #6b6380; box-shadow: none; animation: none; }
+    #loading.error .cord i::after { display: none; }
+    #loading.error .scene * { animation-play-state: paused; }
+
     @media (prefers-reduced-motion: reduce) {
-      #loading, #loading .bar i { transition: none; }
-      #loading .door::after, #loading.indeterminate .bar i { animation: none; }
+      #loading, #loading * { transition: none !important; animation: none !important; }
     }
     #credits-open { position: fixed; left: 16px; right: auto; bottom: 16px; padding: 6px 12px; font: inherit; color: #e6e2f5; cursor: pointer; }
     #credits-open:hover, #credits-open:focus-visible { background: rgba(36, 31, 66, 0.95); }
@@ -68,14 +99,25 @@
 </head>
 <body>
   <div id="loading" role="status" aria-live="polite">
+    <div class="scene"><img class="bg" alt="" src="assets/loading/starfall-1600.webp" srcset="assets/loading/starfall-1000.webp 1000w, assets/loading/starfall-1600.webp 1600w, assets/loading/starfall-2400.webp 2400w" sizes="100vw" fetchpriority="high"><svg class="fx" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>
+  <linearGradient id="fx-tail-blue" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#f0f9ff" stop-opacity="0.95"/><stop offset="0.3" stop-color="#8fd8ff" stop-opacity="0.45"/><stop offset="1" stop-color="#7cc4ff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="fx-tail-pink" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff0f6" stop-opacity="0.95"/><stop offset="0.3" stop-color="#ff9cc8" stop-opacity="0.45"/><stop offset="1" stop-color="#ff8ab8" stop-opacity="0"/></linearGradient>
+  <linearGradient id="fx-core" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="fx-glow"><stop offset="0" stop-color="#fff" stop-opacity="0.95"/><stop offset="0.3" stop-color="#e6f4ff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="fx-fly"><stop offset="0" stop-color="#f6ffc0"/><stop offset="0.25" stop-color="#e2ff8c" stop-opacity="0.5"/><stop offset="1" stop-color="#e2ff8c" stop-opacity="0"/></radialGradient>
+  <radialGradient id="fx-warm"><stop offset="0" stop-color="#ffd47a" stop-opacity="0.75"/><stop offset="1" stop-color="#ffd47a" stop-opacity="0"/></radialGradient>
+  <radialGradient id="fx-gold"><stop offset="0" stop-color="#ffe066" stop-opacity="0.8"/><stop offset="1" stop-color="#ffe066" stop-opacity="0"/></radialGradient>
+  <radialGradient id="fx-flare"><stop offset="0" stop-color="#fff"/><stop offset="0.4" stop-color="#fff1e0" stop-opacity="0.7"/><stop offset="1" stop-color="#ffe2c8" stop-opacity="0"/></radialGradient>
+  <radialGradient id="g-sun-glow" cx="1240" cy="598" r="300" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff6dc" stop-opacity="0.9"/><stop offset="0.18" stop-color="#ffe2b0" stop-opacity="0.45"/><stop offset="0.5" stop-color="#ffc8a8" stop-opacity="0.15"/><stop offset="1" stop-color="#ffc8a8" stop-opacity="0"/></radialGradient><radialGradient id="g-sun-core" cx="1240" cy="598" r="34" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#fffbe8" stop-opacity="0.9"/><stop offset="1" stop-color="#fff1c8" stop-opacity="0"/></radialGradient><linearGradient id="g-spike-v" x1="0" y1="238" x2="0" y2="958" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient><linearGradient id="g-spike-h" x1="680" y1="0" x2="1800" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe9c4" stop-opacity="0"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="1" stop-color="#ffe9c4" stop-opacity="0"/></linearGradient>
+</defs><g id="stars"><path id="stars-a-p" fill="#ffffff" d="M1041.9 112.2a1.3 1.3 0 1 0 2.7 0a1.3 1.3 0 1 0 -2.7 0ZM1389 63.9a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM711.7 1.5Q711.7 10.6 720.8 10.6Q711.7 10.6 711.7 19.7Q711.7 10.6 702.6 10.6Q711.7 10.6 711.7 1.5ZM335.1 14.9Q335.1 24.3 344.5 24.3Q335.1 24.3 335.1 33.7Q335.1 24.3 325.7 24.3Q335.1 24.3 335.1 14.9ZM1001.2 9.2Q1001.2 18.2 1010.2 18.2Q1001.2 18.2 1001.2 27.2Q1001.2 18.2 992.2 18.2Q1001.2 18.2 1001.2 9.2ZM585.4 130.2a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1132.4 139.3Q1132.4 147.9 1141 147.9Q1132.4 147.9 1132.4 156.5Q1132.4 147.9 1123.8 147.9Q1132.4 147.9 1132.4 139.3ZM1102.2 328.2a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM129.5 130.9Q129.5 138.7 137.4 138.7Q129.5 138.7 129.5 146.6Q129.5 138.7 121.7 138.7Q129.5 138.7 129.5 130.9ZM51 99.4a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0ZM471.7 76Q471.7 85.9 481.6 85.9Q471.7 85.9 471.7 95.8Q471.7 85.9 461.8 85.9Q471.7 85.9 471.7 76ZM507.8 36.5a0.6 0.6 0 1 0 1.1 0a0.6 0.6 0 1 0 -1.1 0ZM179.5 236.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM1002.6 101.3a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1145.1 306.2a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM552.4 295.7a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM1238.6 153.2a0.9 0.9 0 1 0 1.9 0a0.9 0.9 0 1 0 -1.9 0ZM312.2 133.2a0.7 0.7 0 1 0 1.5 0a0.7 0.7 0 1 0 -1.5 0ZM349.7 173.9a0.8 0.8 0 1 0 1.5 0a0.8 0.8 0 1 0 -1.5 0ZM1577.9 318.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1385.6 175.1a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM543 122.3Q543 131.1 551.7 131.1Q543 131.1 543 139.8Q543 131.1 534.3 131.1Q543 131.1 543 122.3ZM1401.9 124.8a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM1185.1 42.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1250.6 30.3a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM829.2 250.3Q829.2 257.1 836 257.1Q829.2 257.1 829.2 264Q829.2 257.1 822.3 257.1Q829.2 257.1 829.2 250.3ZM558.4 172.1a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0 -2.4 0ZM57.7 31.8a0.6 0.6 0 1 0 1.1 0a0.6 0.6 0 1 0 -1.1 0ZM936.9 231.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM427 5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1120.7 2a1.3 1.3 0 1 0 2.7 0a1.3 1.3 0 1 0 -2.7 0ZM982.8 237.6a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1589.9 182.5a0.6 0.6 0 1 0 1.1 0a0.6 0.6 0 1 0 -1.1 0ZM637.2 147.9a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM597.8 2.4a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0ZM879.3 25.3a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM406.1 202.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM286.1 185.8a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM343.3 18a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM738.2 19.9a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM599.4 58.5Q599.4 65.3 606.3 65.3Q599.4 65.3 599.4 72.2Q599.4 65.3 592.6 65.3Q599.4 65.3 599.4 58.5ZM33.4 87.1a1.4 1.4 0 1 0 2.7 0a1.4 1.4 0 1 0 -2.7 0ZM1457.8 182.9a0.9 0.9 0 1 0 1.7 0a0.9 0.9 0 1 0 -1.7 0ZM748.4 214.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM903.4 296.8a0.9 0.9 0 1 0 1.9 0a0.9 0.9 0 1 0 -1.9 0ZM1438.1 90.4Q1438.1 98.5 1446.2 98.5Q1438.1 98.5 1438.1 106.7Q1438.1 98.5 1429.9 98.5Q1438.1 98.5 1438.1 90.4ZM1091.9 156.3a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM82.1 -7.8Q82.1 1.2 91.2 1.2Q82.1 1.2 82.1 10.3Q82.1 1.2 73.1 1.2Q82.1 1.2 82.1 -7.8ZM1112.7 154.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM676.5 210.7a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM1425.8 329.8a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0Z"/><path id="stars-b-p" fill="#ffffff" d="M1037.9 276.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM20.5 24.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1546 272.6a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM663.4 294.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1131.8 3.3a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM571.6 70.8a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM1209.2 283.2Q1209.2 291.5 1217.5 291.5Q1209.2 291.5 1209.2 299.8Q1209.2 291.5 1200.9 291.5Q1209.2 291.5 1209.2 283.2ZM819.5 272.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM171.7 201.6a1.2 1.2 0 1 0 2.3 0a1.2 1.2 0 1 0 -2.3 0ZM58.1 300.2a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM820.1 58.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1478.2 117.6a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM378.5 136.1a1.3 1.3 0 1 0 2.5 0a1.3 1.3 0 1 0 -2.5 0ZM1569.6 124.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM170.1 80a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM928.4 0.2a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM1391.9 165.7Q1391.9 174.9 1401.1 174.9Q1391.9 174.9 1391.9 184.1Q1391.9 174.9 1382.6 174.9Q1391.9 174.9 1391.9 165.7ZM828.5 111.9a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM114.2 22.2a0.9 0.9 0 1 0 1.9 0a0.9 0.9 0 1 0 -1.9 0ZM0.6 71.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM669.8 232.1a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM747.4 14.1a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM1530.8 312.2a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0ZM1313.4 163.5a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM788.5 94.6a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0ZM1537.1 283.1a0.7 0.7 0 1 0 1.4 0a0.7 0.7 0 1 0 -1.4 0ZM510.1 321.2a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM228.5 0.6a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM392.3 1.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM20.6 113.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1153.7 39.2a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM537.2 41.9a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM1420.2 117.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM770.5 282a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM1091.7 181.4Q1091.7 188.6 1099 188.6Q1091.7 188.6 1091.7 195.9Q1091.7 188.6 1084.5 188.6Q1091.7 188.6 1091.7 181.4ZM1245.6 131.5a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM1421.3 315a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM532.4 78.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1292.3 257.1a0.6 0.6 0 1 0 1.1 0a0.6 0.6 0 1 0 -1.1 0ZM950.4 22.1Q950.4 28.9 957.1 28.9Q950.4 28.9 950.4 35.7Q950.4 28.9 943.6 28.9Q950.4 28.9 950.4 22.1ZM1159.5 2.3a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM785.4 23.5a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0ZM1328.6 157.8a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0 -2.4 0ZM52.6 21.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1057.4 55a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM1423.1 146.2a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM882.1 7.8a1.2 1.2 0 1 0 2.5 0a1.2 1.2 0 1 0 -2.5 0ZM1075.2 -6.2Q1075.2 1 1082.4 1Q1075.2 1 1075.2 8.2Q1075.2 1 1068 1Q1075.2 1 1075.2 -6.2ZM39.4 27.2a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1504.2 157a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM8.9 2.8a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0ZM342.4 0.3a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM1160.5 282.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM497.7 5.3a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0Z"/><path id="stars-c-p" fill="#ffffff" d="M995.5 198.6a1.2 1.2 0 1 0 2.3 0a1.2 1.2 0 1 0 -2.3 0ZM254.9 224.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM462.3 308.7a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM481.7 139.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM768.6 46.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM281.8 24.4Q281.8 32.6 290 32.6Q281.8 32.6 281.8 40.8Q281.8 32.6 273.6 32.6Q281.8 32.6 281.8 24.4ZM489.1 225.2a0.7 0.7 0 1 0 1.5 0a0.7 0.7 0 1 0 -1.5 0ZM1041.5 3.2Q1041.5 12.5 1050.8 12.5Q1041.5 12.5 1041.5 21.8Q1041.5 12.5 1032.2 12.5Q1041.5 12.5 1041.5 3.2ZM1561 86.1a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM786.3 106.9a0.6 0.6 0 1 0 1.3 0a0.6 0.6 0 1 0 -1.3 0ZM577 219.2a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0ZM939.5 1.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1126.6 38.1a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM520.9 36.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1035.4 224.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1498.9 93.8a0.9 0.9 0 1 0 1.7 0a0.9 0.9 0 1 0 -1.7 0ZM1072.6 74.5a0.7 0.7 0 1 0 1.5 0a0.7 0.7 0 1 0 -1.5 0ZM825.8 295.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM176.7 312.2a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM56.5 89.9a0.5 0.5 0 1 0 1.1 0a0.5 0.5 0 1 0 -1.1 0ZM879.4 43a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM904.8 144.5a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM25.4 9.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM951.8 166.6Q951.8 175.2 960.4 175.2Q951.8 175.2 951.8 183.8Q951.8 175.2 943.2 175.2Q951.8 175.2 951.8 166.6ZM1326.7 3.3a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0ZM1456.5 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM976.5 73.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM340.2 121.5a0.8 0.8 0 1 0 1.6 0a0.8 0.8 0 1 0 -1.6 0ZM114.5 2.6a0.7 0.7 0 1 0 1.3 0a0.7 0.7 0 1 0 -1.3 0ZM502.7 138.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM909.3 170.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM915.7 1.2a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0ZM1540.7 7.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0ZM1089.3 25.8a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM566.4 28.1a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1128 223.9a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1537.5 58.7a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1479.2 52.4Q1479.2 60.6 1487.4 60.6Q1479.2 60.6 1479.2 68.8Q1479.2 60.6 1471 60.6Q1479.2 60.6 1479.2 52.4ZM188.2 166.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM383.4 326.4a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM747.9 38.6a1 1 0 1 0 1.9 0a1 1 0 1 0 -1.9 0ZM270.3 1a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0ZM76.1 242.1a0.6 0.6 0 1 0 1.1 0a0.6 0.6 0 1 0 -1.1 0ZM134.5 46a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0ZM1575.8 14.9a0.5 0.5 0 1 0 1 0a0.5 0.5 0 1 0 -1 0Z"/></g><g id="fx-shoot"></g><g id="fx-comet"></g><g id="sun-flare"><circle id="sun-glow" cx="1240" cy="598" r="300" fill="url(#g-sun-glow)"/><path id="spike-v" fill="url(#g-spike-v)" d="M1240 238L1242.6 598L1240 958L1237.4 598Z"/><path id="spike-h" fill="url(#g-spike-h)" d="M680 598L1240 595.8L1800 598L1240 600.2Z"/><path id="sun-rays" fill="#fffaf0" opacity="0.7" d="M1239.4 599.5L1304.7 624.8L1240.6 596.5ZM1238.5 598.6L1278.3 690.4L1241.5 597.4ZM1238.5 597.4L1190.3 718.1L1241.5 598.6ZM1239.4 596.5L1175.3 624.8L1240.6 599.5ZM1240.6 596.5L1147.6 559.7L1239.4 599.5ZM1241.5 597.4L1190.3 477.9L1238.5 598.6ZM1241.5 598.6L1266.8 533.3L1238.5 597.4ZM1240.6 599.5L1332.4 559.7L1239.4 596.5Z"/><circle id="sun-core" cx="1240" cy="598" r="34" fill="url(#g-sun-core)"/><circle id="ghost-0" cx="1086" cy="535.7" r="22" fill="#bfe3ff" opacity="0.18"/><circle id="ghost-1" cx="998" cy="500.1" r="10" fill="#ffd2e6" opacity="0.25"/><circle id="ghost-2" cx="888" cy="455.6" r="44" fill="#c8ffd8" opacity="0.08"/><circle id="ghost-3" cx="778" cy="411.1" r="16" fill="#ffe2b8" opacity="0.2"/></g><circle id="fx-window-glow" cx="1169" cy="644" r="26" fill="url(#fx-warm)"/><g id="fx-rings"><circle cx="820.6" cy="728.3" r="9" fill="url(#fx-gold)"/><circle cx="857.4" cy="728.3" r="9" fill="url(#fx-gold)"/><circle cx="881.7" cy="711.2" r="8" fill="url(#fx-gold)"/><circle cx="823.6" cy="656.1" r="8" fill="url(#fx-gold)"/><circle cx="854.4" cy="656.1" r="8" fill="url(#fx-gold)"/></g><g id="fx-flies"></g><circle id="fx-flare" cx="0" cy="0" r="0" fill="url(#fx-flare)" opacity="0"/><rect id="fx-dim" width="1600" height="1000" fill="#080a1a" opacity="0"/></svg></div>
     <div class="card">
-      <div class="door" aria-hidden="true"></div>
       <h1>Pete's Room</h1>
-      <div class="bar" aria-hidden="true"><i></i></div>
+      <div class="cord" aria-hidden="true"><i></i></div>
       <div class="status"><span class="label">Loading room…</span><span class="pct"></span></div>
       <p class="tip">Drag to look around · scroll to zoom · click things</p>
     </div>
   </div>
+  <script src="./loader.js"></script>
   <div id="hint"></div>
   <div id="fade"></div>
   <section id="picker" class="panel" hidden aria-label="Choose a tape">

@@ -72,31 +72,19 @@ const look = createLook(renderer, scene, camera, sun);
 // ---- Load the room -------------------------------------------------------------------
 // The production build Draco-compresses the room; the decoder is only fetched for compressed files
 const draco = new DRACOLoader().setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/");
-const loading = document.getElementById("loading");
-const loadingBar = loading.querySelector(".bar i");
-const setLoadingStatus = (label, pct = "") => {
-  loading.querySelector(".label").textContent = label;
-  loading.querySelector(".pct").textContent = pct;
-};
-const onRoomProgress = (event) => {
-  if (!event.lengthComputable) return loading.classList.add("indeterminate");
-  const pct = Math.round((event.loaded / event.total) * 100);
-  loadingBar.style.width = `${pct}%`;
-  setLoadingStatus(pct < 100 ? "Loading room…" : "Unpacking…", `${pct}%`);
-};
+// The starfall loading screen (loader.js, loaded before this bundle) shows the download; if it failed to load,
+// just drop the screen when the room is ready
+const loader = window.roomLoader ?? { progress() {}, settingUp() {}, fail() {}, finish() { document.getElementById("loading")?.remove(); } };
+const onRoomProgress = (event) => loader.progress(event.loaded, event.lengthComputable ? event.total : 0);
 const onRoomError = (err) => {
   console.error("Room failed to load", err);
-  loading.classList.remove("indeterminate");
-  setLoadingStatus("Couldn't load the room. Refresh to try again.");
+  loader.fail();
 };
-// Compile the shaders before revealing the room so the first frames don't stutter, then fade the screen out
+// Compile the shaders before revealing the room so the first frames don't stutter, then let the comet flare and fade out
 const hideLoading = async () => {
-  setLoadingStatus("Setting up…", "100%");
-  loadingBar.style.width = "100%";
+  loader.settingUp();
   try { await renderer.compileAsync(scene, camera); } catch {}
-  loading.classList.add("done");
-  loading.addEventListener("transitionend", () => loading.remove(), { once: true });
-  setTimeout(() => loading.remove(), 1000);   // reduced motion: no transition fires
+  loader.finish();
 };
 
 new GLTFLoader().setDRACOLoader(draco).load(ROOM_URL, (gltf) => {

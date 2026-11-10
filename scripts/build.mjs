@@ -41,7 +41,8 @@ html = html.replace(/\s*<script type="importmap">[\s\S]*?<\/script>/, "");
 html = html.replace('src="./main.js"', `src="./${bundle}"`);
 writeFileSync(`${OUT}/index.html`, html);
 
-// Static assets, Draco decoder, compressed room
+// Static assets, the loading screen script (runs before the bundle), Draco decoder, compressed room
+cpSync("site/loader.js", `${OUT}/loader.js`);
 cpSync("site/assets", `${OUT}/assets`, { recursive: true, filter: (src) => !src.endsWith(".DS_Store") });
 mkdirSync(`${OUT}/draco`);
 for (const f of ["draco_decoder.wasm", "draco_wasm_wrapper.js", "draco_decoder.js"]) {
